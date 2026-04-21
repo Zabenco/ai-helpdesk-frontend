@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
+import { auth } from '../firebase';
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
 
@@ -103,9 +104,10 @@ export default function Admin() {
     setClearMsg('');
     try {
       // Re-authenticate with password to confirm identity
-      const { signInWithEmailAndPassword } = await import('../firebase').then(m => m.auth || m);
-      const { auth } = await import('../firebase');
-      await signInWithEmailAndPassword(auth, user?.email, confirmPassword);
+      const { signInWithEmailAndPassword } = await import('firebase/auth');
+      const email = user?.email;
+      if (!email) throw new Error('Not logged in');
+      await signInWithEmailAndPassword(auth, email, confirmPassword);
 
       const res = await fetch(`${BACKEND_URL}/clear-index`, { method: 'POST' });
       const data = await res.json();
