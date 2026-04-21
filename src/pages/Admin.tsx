@@ -8,7 +8,7 @@ const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
 export default function Admin() {
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'model' | 'history' | 'upload' | 'clear'>('model');
+  const [tab, setTab] = useState<'model' | 'history' | 'upload' | 'index-upload' | 'clear'>('model');
   const [modelStatus, setModelStatus] = useState<any>(null);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -25,6 +25,10 @@ export default function Admin() {
   // Upload state
   const [files, setFiles] = useState<FileList | null>(null);
   const [uploadMsg, setUploadMsg] = useState('');
+
+  // Index zip upload state
+  const [indexZip, setIndexZip] = useState<FileList | null>(null);
+  const [indexZipMsg, setIndexZipMsg] = useState('');
 
   // Clear index state
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -103,7 +107,6 @@ export default function Admin() {
     setClearing(true);
     setClearMsg('');
     try {
-      // Re-authenticate with password to confirm identity
       const { signInWithEmailAndPassword } = await import('firebase/auth');
       const email = user?.email;
       if (!email) throw new Error('Not logged in');
@@ -120,6 +123,30 @@ export default function Admin() {
     }
   };
 
+  const handleIndexZipUpload = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indexZip || indexZip.length === 0) return;
+    setIndexZipMsg('Uploading and extracting index zip...');
+
+    const formData = new FormData();
+    formData.append('file', indexZip[0]);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/upload-index-zip`, {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await res.json();
+      if (data.error) {
+        setIndexZipMsg(`Error: ${data.error}`);
+      } else {
+        setIndexZipMsg(`Extracted ${data.extracted?.length || 0} index files. ${data.errors?.length ? 'Errors: ' + data.errors.join(', ') : 'No errors.'}`);
+      }
+    } catch (err: any) {
+      setIndexZipMsg(`Error: ${err.message}`);
+    }
+  };
+
   return (
     <div className="admin-page">
       <header className="admin-header">
@@ -131,6 +158,7 @@ export default function Admin() {
         <button className={tab === 'model' ? 'active' : ''} onClick={() => setTab('model')}>Model Config</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>User History</button>
         <button className={tab === 'upload' ? 'active' : ''} onClick={() => setTab('upload')}>Upload Files</button>
+        <button className={tab === 'index-upload' ? 'active' : ''} onClick={() => setTab('index-upload')}>Upload Index Zip</button>
         <button className={tab === 'clear' ? 'active' : ''} onClick={() => setTab('clear')}>Clear Index</button>
       </div>
 
@@ -204,6 +232,21 @@ export default function Admin() {
               </div>
               <button type="submit" className="upload-btn">Upload & Re-Index</button>
               {uploadMsg && <p className="info-msg">{uploadMsg}</p>}
+            </form>
+          </div>
+        )}
+
+        {tab === 'index-upload' && (
+          <div className="tab-panel">
+            <h3>Upload Pre-Built Index (Zip)</h3>
+            <p className="upload-info">Upload a .zip of a pre-built index folder. Extracts directly to the index directory. Use this to transfer a locally-built index to the server.</p>
+            <form onSubmit={handleIndexZipUpload} className="upload-form">
+              <div className="form-group">
+                <label>Select Index .zip</label>
+                <input type="file" accept=".zip" onChange={(e) => setIndexZip(e.target.files)} />
+              </div>
+              <button type="submit" className="upload-btn">Extract to Index</button>
+              {indexZipMsg && <p className="info-msg">{indexZipMsg}</p>}
             </form>
           </div>
         )}
