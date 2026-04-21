@@ -5,9 +5,9 @@ import { useAuth } from '../AuthContext';
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
 
 export default function Admin() {
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'model' | 'users' | 'history' | 'upload'>('model');
+  const [tab, setTab] = useState<'model' | 'history' | 'upload' | 'clear'>('model');
   const [modelStatus, setModelStatus] = useState<any>(null);
   const [loadingModels, setLoadingModels] = useState(false);
 
@@ -24,6 +24,11 @@ export default function Admin() {
   // Upload state
   const [files, setFiles] = useState<FileList | null>(null);
   const [uploadMsg, setUploadMsg] = useState('');
+
+  // Clear index state
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [clearMsg, setClearMsg] = useState('');
+  const [clearing, setClearing] = useState(false);
 
   if (!isAdmin) {
     navigate('/');
@@ -47,8 +52,6 @@ export default function Admin() {
 
   const handleModelSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setModelMsg('');
-    // Model switching would require backend env update — inform user
     setModelMsg('Model config updated. Restart backend for changes to take effect.');
   };
 
@@ -90,6 +93,31 @@ export default function Admin() {
     }
   };
 
+  const handleClearIndex = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmPassword.trim()) {
+      setClearMsg('Please enter your password to confirm.');
+      return;
+    }
+    setClearing(true);
+    setClearMsg('');
+    try {
+      // Re-authenticate with password to confirm identity
+      const { signInWithEmailAndPassword } = await import('../firebase').then(m => m.auth || m);
+      const { auth } = await import('../firebase');
+      await signInWithEmailAndPassword(auth, user?.email, confirmPassword);
+
+      const res = await fetch(`${BACKEND_URL}/clear-index`, { method: 'POST' });
+      const data = await res.json();
+      setClearMsg(data.message || 'Index cleared.');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setClearMsg(`Failed: ${err.message}`);
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="admin-page">
       <header className="admin-header">
@@ -101,6 +129,7 @@ export default function Admin() {
         <button className={tab === 'model' ? 'active' : ''} onClick={() => setTab('model')}>Model Config</button>
         <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>User History</button>
         <button className={tab === 'upload' ? 'active' : ''} onClick={() => setTab('upload')}>Upload Files</button>
+        <button className={tab === 'clear' ? 'active' : ''} onClick={() => setTab('clear')}>Clear Index</button>
       </div>
 
       <div className="admin-content">
@@ -173,6 +202,28 @@ export default function Admin() {
               </div>
               <button type="submit" className="upload-btn">Upload & Re-Index</button>
               {uploadMsg && <p className="info-msg">{uploadMsg}</p>}
+            </form>
+          </div>
+        )}
+
+        {tab === 'clear' && (
+          <div className="tab-panel">
+            <h3>Clear Index & Docs</h3>
+            <p className="upload-info">This will delete all indexed files and all documents in the docs folder. The backend will stop answering until new docs are uploaded.</p>
+            <form onSubmit={handleClearIndex} className="upload-form">
+              <div className="form-group">
+                <label>Enter your password to confirm</label>
+                <input
+                  type="password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Your account password"
+                />
+              </div>
+              <button type="submit" className="upload-btn" disabled={clearing} style={{ background: '#f85149' }}>
+                {clearing ? 'Clearing...' : 'Delete All Index Files'}
+              </button>
+              {clearMsg && <p className="info-msg" style={{ color: clearMsg.startsWith('Failed') ? '#f85149' : '#00d084' }}>{clearMsg}</p>}
             </form>
           </div>
         )}
