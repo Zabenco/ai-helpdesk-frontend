@@ -28,7 +28,7 @@ export default function Login() {
     <div className="login-page">
       <div className="login-card">
         <h1>AI Helpdesk</h1>
-        <p className="login-subtitle">Sign in to access your IT assistant</p>
+        <p className="login-subtitle">Sign in to access the AI assistant</p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
