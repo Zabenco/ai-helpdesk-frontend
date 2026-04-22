@@ -7,12 +7,6 @@ import remarkGfm from 'remark-gfm';
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
 
-interface HistoryMessage {
-  role: string;
-  content: string;
-  timestamp?: string;
-}
-
 export default function Admin() {
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
