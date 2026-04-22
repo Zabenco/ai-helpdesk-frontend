@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../AuthContext';
 import { Link } from 'react-router-dom';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -69,24 +71,12 @@ export default function Chat() {
         const chunk = decoder.decode(value, { stream: true });
         fullContent += chunk;
 
-        let cleaned = fullContent
-          .replace(/<think>[\s\S]*?<\/think>/g, '')
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/`(.*?)`/g, '<code>$1</code>')
-          .replace(/\n/g, '<br>');
-
-        setStreamingContent(cleaned);
+        setStreamingContent(fullContent);
       }
-
-      let finalContent = fullContent
-        .replace(/<think>[\s\S]*?<\/think>/g, '')
-        .replace(/\n/g, '<br>')
-        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-        .replace(/`(.*?)`/g, '<code>$1</code>');
 
       setMessages(prev => {
         const updated = [...prev];
-        updated[updated.length - 1] = { role: 'assistant', content: finalContent };
+        updated[updated.length - 1] = { role: 'assistant', content: fullContent };
         return updated;
       });
 
@@ -138,16 +128,21 @@ export default function Chat() {
               {msg.role === 'assistant' && (
                 <div className="message-label assistant-label">AI</div>
               )}
-              <div
-                className={`message-text ${msg.role}`}
-                dangerouslySetInnerHTML={{ __html: msg.content }}
-              />
+              <div className={`message-text ${msg.role}`}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()}
+                </ReactMarkdown>
+              </div>
             </div>
           ))}
           {streamingContent && (
             <div className="message-row assistant">
               <div className="message-label assistant-label">AI</div>
-              <div className="message-text assistant" dangerouslySetInnerHTML={{ __html: streamingContent }} />
+              <div className="message-text assistant">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {streamingContent.replace(/<think>[\s\S]*?<\/think>/g, '')}
+                </ReactMarkdown>
+              </div>
             </div>
           )}
           {loading && !streamingContent && (

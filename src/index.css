@@ -280,6 +280,34 @@ body {
   font-size: 0.82rem;
 }
 
+/* Tables rendered via react-markdown */
+.message-text table {
+  border-collapse: collapse;
+  margin: 0.8rem 0;
+  font-size: 0.85rem;
+  width: auto;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+
+.message-text th,
+.message-text td {
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+}
+
+.message-text th {
+  background: var(--bg-secondary);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.message-text tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
 .thinking {
   color: var(--text-secondary);
   font-style: italic;
