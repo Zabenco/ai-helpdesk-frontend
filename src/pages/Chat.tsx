@@ -7,6 +7,7 @@ import remarkGfm from 'remark-gfm';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
+  timestamp?: string;
 }
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
@@ -23,24 +24,15 @@ export default function Chat() {
   useEffect(() => {
     if (!user?.email) return;
     const userId = user.email;
-    fetch(`${BACKEND_URL}/history/${encodeURIComponent(userId)}`)
+    fetch(`${BACKEND_URL}/history/${encodeURIComponent(userId)}/full`)
       .then(res => res.json())
       .then(data => {
-        if (data.history && data.history.trim()) {
-          const lines = data.history.split('\n').filter((l: string) => l.trim());
-          const historyMessages: Message[] = [];
-          for (const line of lines) {
-            const colonIdx = line.indexOf(':');
-            if (colonIdx === -1) continue;
-            const role = line.slice(0, colonIdx).trim().toLowerCase();
-            const content = line.slice(colonIdx + 1).trim();
-            if (content && (role === 'user' || role === 'assistant')) {
-              historyMessages.push({ role: role as 'user' | 'assistant', content });
-            }
-          }
-          if (historyMessages.length > 0) {
-            setMessages(historyMessages);
-          }
+        if (data.history && Array.isArray(data.history) && data.history.length > 0) {
+          setMessages(data.history.map((m: any) => ({
+            role: m.role === 'assistant' ? 'assistant' : 'user',
+            content: String(m.content || ''),
+            timestamp: m.timestamp || null,
+          })));
         }
       })
       .catch(() => {});
@@ -58,11 +50,7 @@ export default function Chat() {
     setInput('');
     setLoading(true);
 
-    // Add both messages at once so assistantIndex is correct
-    setMessages(prev => {
-      const updated = [...prev, { role: 'user', content: question }, { role: 'assistant', content: '' }];
-      return updated;
-    });
+    setMessages(prev => [...prev, { role: 'user', content: question }, { role: 'assistant', content: '' }]);
 
     try {
       const res = await fetch(`${BACKEND_URL}/ask`, {
@@ -106,6 +94,12 @@ export default function Chat() {
     }
   };
 
+  // Strip think tags and ensure content is a string
+  const cleanContent = (content: string): string => {
+    const stripped = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+    return stripped;
+  };
+
   return (
     <div className="chat-page">
       <header className="chat-header">
@@ -134,9 +128,11 @@ export default function Chat() {
                   <div className="message-label assistant-label">AI</div>
                 )}
                 <div className={`message-text ${msg.role}`}>
-                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                    {msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()}
-                  </ReactMarkdown>
+                  {msg.content ? (
+                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                      {cleanContent(msg.content)}
+                    </ReactMarkdown>
+                  ) : null}
                 </div>
               </div>
             ))}

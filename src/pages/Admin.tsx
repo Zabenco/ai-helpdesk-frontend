@@ -2,8 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
+
+interface HistoryMessage {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
 
 export default function Admin() {
   const { isAdmin, user } = useAuth();
@@ -19,7 +27,7 @@ export default function Admin() {
 
   // User history state
   const [historyEmail, setHistoryEmail] = useState('');
-  const [historyData, setHistoryData] = useState('');
+  const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Upload state
@@ -64,13 +72,19 @@ export default function Admin() {
     e.preventDefault();
     if (!historyEmail.trim()) return;
     setHistoryLoading(true);
-    setHistoryData('');
+    setHistoryMessages([]);
     try {
-      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}`);
+      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}/full`);
       const data = await res.json();
-      setHistoryData(data.history || 'No history found.');
+      if (data.history && Array.isArray(data.history)) {
+        setHistoryMessages(data.history.map((m: any) => ({
+          role: m.role || 'user',
+          content: String(m.content || ''),
+          timestamp: m.timestamp || null,
+        })));
+      }
     } catch (err: any) {
-      setHistoryData(`Error: ${err.message}`);
+      console.error('History fetch error:', err);
     } finally {
       setHistoryLoading(false);
     }
@@ -213,10 +227,37 @@ export default function Admin() {
                 {historyLoading ? 'Loading...' : 'Lookup History'}
               </button>
             </form>
-            {historyData && (
+            {historyMessages.length > 0 && (
               <div className="history-result">
-                <pre>{historyData}</pre>
+                {historyMessages.map((msg, i) => (
+                  <div key={i} className="history-message" style={{ marginBottom: '1.2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                      <strong style={{ color: msg.role === 'assistant' ? 'var(--accent)' : 'var(--text-primary)' }}>
+                        {msg.role === 'assistant' ? 'AI' : 'User'}
+                      </strong>
+                      {msg.timestamp && (
+                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                          {new Date(msg.timestamp).toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                    {msg.role === 'assistant' ? (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                          {msg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()}
+                        </ReactMarkdown>
+                      </div>
+                    ) : (
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.6' }}>
+                        {msg.content}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
+            )}
+            {!historyLoading && historyMessages.length === 0 && historyEmail && (
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '1rem' }}>No history found for this user.</p>
             )}
           </div>
         )}
