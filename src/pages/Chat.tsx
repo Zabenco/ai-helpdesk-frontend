@@ -15,12 +15,14 @@ export default function Chat() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [streamingContent, setStreamingContent] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, streamingContent]);
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,34 +32,81 @@ export default function Chat() {
     setInput('');
     setLoading(true);
 
+    // Add user message immediately
     setMessages(prev => [...prev, { role: 'user', content: question }]);
+    setStreamingContent('');
+
+    // Abort any previous stream
+    if (abortRef.current) {
+      abortRef.current.abort();
+    }
+    abortRef.current = new AbortController();
 
     try {
-      const res = await fetch(`${BACKEND_URL}/ask`, {
+      const res = await fetch(`${BACKEND_URL}/ask/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           question,
           user_id: user?.email || 'default'
-        })
+        }),
+        signal: abortRef.current.signal,
       });
-      const data = await res.json();
-      if (data.error) {
-        setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${data.error}` }]);
-      } else {
-        let answer = data.answer || '';
-        // Strip <think> tags and their content
-        answer = answer.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: answer,
-          sources: data.sources || []
-        }]);
+
+      if (!res.ok) {
+        throw new Error(`HTTP ${res.status}`);
       }
+
+      const reader = res.body?.getReader();
+      if (!reader) throw new Error('No response body');
+
+      let fullContent = '';
+      const decoder = new TextDecoder();
+
+      // Create assistant message placeholder
+      setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+
+        // Strip <think> tags and format
+        let cleaned = fullContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        cleaned = cleaned
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/`(.*?)`/g, '<code>$1</code>')
+          .replace(/\n/g, '<br>');
+
+        setStreamingContent(cleaned);
+      }
+
+      // Finalize the message
+      setMessages(prev => {
+        const updated = [...prev];
+        const lastMsg = updated[updated.length - 1];
+        let finalContent = fullContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+        finalContent = finalContent
+          .replace(/\n/g, '<br>')
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/`(.*?)`/g, '<code>$1</code>');
+        lastMsg.content = finalContent;
+        return updated;
+      });
+
+      setStreamingContent('');
+
     } catch (err: any) {
-      setMessages(prev => [...prev, { role: 'assistant', content: `Network error: ${err.message}` }]);
+      if (err.name === 'AbortError') return;
+      // Remove the empty placeholder message
+      setMessages(prev => prev.slice(0, -1));
+      setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
+      setStreamingContent('');
     } finally {
       setLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -66,13 +115,6 @@ export default function Chat() {
       e.preventDefault();
       sendMessage(e);
     }
-  };
-
-  const formatContent = (text: string) => {
-    return text
-      .replace(/\n/g, '\n')
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/`(.*?)`/g, '<code>$1</code>');
   };
 
   return (
@@ -101,18 +143,15 @@ export default function Chat() {
           <div className="messages">
             {messages.map((msg, i) => (
               <div key={i} className={`message ${msg.role}`}>
-                <div className="message-content" dangerouslySetInnerHTML={{ __html: formatContent(msg.content) }} />
-                {msg.sources && msg.sources.length > 0 && (
-                  <div className="sources">
-                    <span className="sources-label">Sources:</span>
-                    {msg.sources.map((s: any, j: number) => (
-                      <span key={j} className="source-tag">{s.file_name}</span>
-                    ))}
-                  </div>
-                )}
+                <div className="message-content" dangerouslySetInnerHTML={{ __html: msg.content }} />
               </div>
             ))}
-            {loading && (
+            {streamingContent && (
+              <div className="message assistant">
+                <div className="message-content typing" dangerouslySetInnerHTML={{ __html: streamingContent }} />
+              </div>
+            )}
+            {loading && !streamingContent && (
               <div className="message assistant">
                 <div className="message-content typing">Thinking...</div>
               </div>
