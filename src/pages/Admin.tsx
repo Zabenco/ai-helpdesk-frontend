@@ -7,6 +7,12 @@ import remarkGfm from 'remark-gfm';
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
 
+interface MessageItem {
+  role: string;
+  content: string;
+  timestamp?: string;
+}
+
 export default function Admin() {
   const { isAdmin, user } = useAuth();
   const navigate = useNavigate();
@@ -21,8 +27,9 @@ export default function Admin() {
 
   // User history state
   const [historyEmail, setHistoryEmail] = useState('');
-  const [historyMessages, setHistoryMessages] = useState<{role:string;content:string;timestamp?:string}[]>([]);
+  const [historyMessages, setHistoryMessages] = useState<MessageItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  const [selectedMsg, setSelectedMsg] = useState<MessageItem | null>(null);
 
   // Upload state
   const [files, setFiles] = useState<FileList | null>(null);
@@ -163,6 +170,11 @@ export default function Admin() {
     }
   };
 
+  const extractThinkTag = (content: string): string | null => {
+    const match = content.match(/<think>([\s\S]*?)<\/think>/);
+    return match ? match[1].trim() : null;
+  };
+
   return (
     <div className="admin-page">
       <header className="admin-header">
@@ -233,15 +245,25 @@ export default function Admin() {
               <div className="history-result">
                 {historyMessages.map((msg, i) => (
                   <div key={i} className="history-message" style={{ marginBottom: '1.2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
                       <strong style={{ color: msg.role === 'assistant' ? 'var(--accent)' : 'var(--text-primary)' }}>
                         {msg.role === 'assistant' ? 'AI' : 'User'}
                       </strong>
-                      {msg.timestamp && (
-                        <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
-                          {new Date(msg.timestamp).toLocaleString()}
-                        </span>
-                      )}
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        {msg.timestamp && (
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
+                            {new Date(msg.timestamp).toLocaleString()}
+                          </span>
+                        )}
+                        {msg.role === 'assistant' && extractThinkTag(msg.content) && (
+                          <button
+                            onClick={() => setSelectedMsg(msg)}
+                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.2rem 0.5rem', fontSize: '0.7rem', color: 'var(--accent)', cursor: 'pointer' }}
+                          >
+                            View AI Think
+                          </button>
+                        )}
+                      </div>
                     </div>
                     {msg.role === 'assistant' ? (
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
@@ -316,6 +338,69 @@ export default function Admin() {
           </div>
         )}
       </div>
+
+      {/* Message Detail Modal */}
+      {selectedMsg && (
+        <div
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            background: 'rgba(0,0,0,0.85)', zIndex: 1000,
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+          }}
+          onClick={() => setSelectedMsg(null)}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '12px',
+              maxWidth: '800px', width: '100%', maxHeight: '85vh', overflow: 'auto', padding: '1.5rem'
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: 'var(--accent)', margin: 0 }}>
+                {selectedMsg.role === 'assistant' ? 'AI Response Detail' : 'User Message'}
+              </h3>
+              <button
+                onClick={() => setSelectedMsg(null)}
+                style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '6px', padding: '0.4rem 0.8rem', cursor: 'pointer', color: 'var(--text-secondary)' }}
+              >
+                ✕ Close
+              </button>
+            </div>
+
+            {selectedMsg.role === 'assistant' && extractThinkTag(selectedMsg.content) && (
+              <div style={{ marginBottom: '1.2rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  🤖 AI Reasoning (<think>)
+                </div>
+                <div style={{ background: 'rgba(0,208,132,0.08)', border: '1px solid rgba(0,208,132,0.25)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
+                  {extractThinkTag(selectedMsg.content)}
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginBottom: '1.2rem' }}>
+              <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Clean Response
+              </div>
+              <div style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.85rem', lineHeight: '1.7' }}>
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {selectedMsg.content.replace(/<think>[\s\S]*?<\/think>/g, '').trim()}
+                </ReactMarkdown>
+              </div>
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Raw Output (with <think> tags)
+              </div>
+              <pre style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '250px' }}>
+                {selectedMsg.content}
+              </pre>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
