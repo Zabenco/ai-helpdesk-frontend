@@ -95,7 +95,7 @@ export default function Chat() {
       <div className="chat-body">
         {messages.length === 0 ? (
           <div className="chat-empty">
-            <p>Ask me anything about IT procedures, KB articles, or troubleshooting steps.</p>
+            <p>AI Helpdesk Assistant By Ethan Zabenco.</p>
           </div>
         ) : (
           <div className="messages">
