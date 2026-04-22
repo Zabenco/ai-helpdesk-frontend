@@ -245,10 +245,17 @@ export default function Admin() {
               <div className="history-result">
                 {historyMessages.map((msg, i) => (
                   <div key={i} className="history-message" style={{ marginBottom: '1.2rem', borderBottom: '1px solid var(--border)', paddingBottom: '1rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                      <strong style={{ color: msg.role === 'assistant' ? 'var(--accent)' : 'var(--text-primary)' }}>
-                        {msg.role === 'assistant' ? 'AI' : 'User'}
-                      </strong>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', gap: '0.5rem' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                        <span style={{ fontSize: '0.7rem', fontWeight: 700, background: msg.role === 'assistant' ? 'rgba(0,208,132,0.15)' : 'rgba(139,148,158,0.15)', color: msg.role === 'assistant' ? 'var(--accent)' : 'var(--text-secondary)', padding: '0.15rem 0.4rem', borderRadius: '4px' }}>
+                          {msg.role === 'assistant' ? 'AI' : 'USER'}
+                        </span>
+                        {msg.role === 'assistant' ? (
+                          <span style={{ fontSize: '0.65rem', padding: '0.1rem 0.3rem', borderRadius: '3px', background: extractThinkTag(msg.content) ? 'rgba(210,166,0,0.2)' : 'transparent', color: extractThinkTag(msg.content) ? '#d2a600' : 'transparent', border: extractThinkTag(msg.content) ? '1px solid rgba(210,166,0,0.4)' : '1px solid transparent' }}>
+                          {extractThinkTag(msg.content) ? '🤖 think+raw' : '🤖 clean only'}
+                          </span>
+                        ) : null}
+                      </span>
                       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                         {msg.timestamp && (
                           <span style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
@@ -258,7 +265,7 @@ export default function Admin() {
                         {msg.role === 'assistant' && extractThinkTag(msg.content) && (
                           <button
                             onClick={() => setSelectedMsg(msg)}
-                            style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '4px', padding: '0.2rem 0.5rem', fontSize: '0.7rem', color: 'var(--accent)', cursor: 'pointer' }}
+                            style={{ background: 'rgba(210,166,0,0.15)', border: '1px solid rgba(210,166,0,0.5)', borderRadius: '4px', padding: '0.2rem 0.5rem', fontSize: '0.7rem', color: '#d2a600', cursor: 'pointer' }}
                           >
                             View AI Think
                           </button>
