@@ -27,7 +27,7 @@ export default function Admin() {
 
   // User history state
   const [historyEmail, setHistoryEmail] = useState('');
-  const [historyMessages, setHistoryMessages] = useState<HistoryMessage[]>([]);
+  const [historyMessages, setHistoryMessages] = useState<{role:string;content:string;timestamp?:string}[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
 
   // Upload state
@@ -74,14 +74,22 @@ export default function Admin() {
     setHistoryLoading(true);
     setHistoryMessages([]);
     try {
-      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}/full`);
+      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}`);
       const data = await res.json();
       if (data.history && Array.isArray(data.history)) {
-        setHistoryMessages(data.history.map((m: any) => ({
-          role: m.role || 'user',
-          content: String(m.content || ''),
-          timestamp: m.timestamp || null,
-        })));
+        setHistoryMessages(data.history.map((item: any) => {
+          let content = '';
+          if (typeof item.content === 'string') {
+            content = item.content;
+          } else if (Array.isArray(item.blocks)) {
+            content = item.blocks.map((b: any) => b.text || '').join('\n');
+          }
+          return {
+            role: item.role || 'user',
+            content: String(content),
+            timestamp: item.timestamp || null,
+          };
+        }));
       }
     } catch (err: any) {
       console.error('History fetch error:', err);

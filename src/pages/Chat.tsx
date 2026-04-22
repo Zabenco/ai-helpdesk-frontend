@@ -20,19 +20,32 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Load previous chat history on mount
+  // Load previous chat history on mount — use /history endpoint and parse llama-index format
   useEffect(() => {
     if (!user?.email) return;
     const userId = user.email;
-    fetch(`${BACKEND_URL}/history/${encodeURIComponent(userId)}/full`)
+    fetch(`${BACKEND_URL}/history/${encodeURIComponent(userId)}`)
       .then(res => res.json())
       .then(data => {
         if (data.history && Array.isArray(data.history) && data.history.length > 0) {
-          setMessages(data.history.map((m: any) => ({
-            role: m.role === 'assistant' ? 'assistant' : 'user',
-            content: String(m.content || ''),
-            timestamp: m.timestamp || null,
-          })));
+          const loaded: Message[] = [];
+          for (const item of data.history) {
+            // LlamaIndex stores messages as objects with role + blocks (not content string)
+            const role = item.role === 'assistant' ? 'assistant' : 'user';
+            let content = '';
+            if (typeof item.content === 'string') {
+              content = item.content;
+            } else if (Array.isArray(item.blocks)) {
+              // LlamaIndex internal format: blocks array
+              content = item.blocks.map((b: any) => b.text || '').join('\n');
+            }
+            if (content) {
+              loaded.push({ role, content });
+            }
+          }
+          if (loaded.length > 0) {
+            setMessages(loaded);
+          }
         }
       })
       .catch(() => {});
@@ -94,10 +107,8 @@ export default function Chat() {
     }
   };
 
-  // Strip think tags and ensure content is a string
   const cleanContent = (content: string): string => {
-    const stripped = content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-    return stripped;
+    return content.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
   };
 
   return (
