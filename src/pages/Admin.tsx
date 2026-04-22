@@ -378,7 +378,7 @@ export default function Admin() {
             {selectedMsg.role === 'assistant' && extractThinkTag(selectedMsg.content) && (
               <div style={{ marginBottom: '1.2rem' }}>
                 <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  🤖 AI Reasoning (<think>)
+                  🤖 AI Reasoning ({'<think>'})
                 </div>
                 <div style={{ background: 'rgba(0,208,132,0.08)', border: '1px solid rgba(0,208,132,0.25)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.7', whiteSpace: 'pre-wrap' }}>
                   {extractThinkTag(selectedMsg.content)}
@@ -399,7 +399,7 @@ export default function Admin() {
 
             <div>
               <div style={{ fontSize: '0.78rem', fontWeight: '700', color: 'var(--accent)', marginBottom: '0.4rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                Raw Output (with <think> tags)
+                Raw Output (with {'<think>'} tags)
               </div>
               <pre style={{ background: 'var(--bg-secondary)', border: '1px solid var(--border)', borderRadius: '8px', padding: '0.85rem', fontSize: '0.78rem', color: 'var(--text-secondary)', lineHeight: '1.6', whiteSpace: 'pre-wrap', overflow: 'auto', maxHeight: '250px' }}>
                 {selectedMsg.content}
