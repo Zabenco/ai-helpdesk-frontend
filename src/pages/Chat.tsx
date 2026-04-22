@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 interface Message {
   role: 'user' | 'assistant';
   content: string;
-  sources?: any[];
 }
 
 const BACKEND_URL = 'https://ai-helpdesk-bqkv.onrender.com';
@@ -32,11 +31,9 @@ export default function Chat() {
     setInput('');
     setLoading(true);
 
-    // Add user message immediately
     setMessages(prev => [...prev, { role: 'user', content: question }]);
     setStreamingContent('');
 
-    // Abort any previous stream
     if (abortRef.current) {
       abortRef.current.abort();
     }
@@ -63,7 +60,6 @@ export default function Chat() {
       let fullContent = '';
       const decoder = new TextDecoder();
 
-      // Create assistant message placeholder
       setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
 
       while (true) {
@@ -73,9 +69,8 @@ export default function Chat() {
         const chunk = decoder.decode(value, { stream: true });
         fullContent += chunk;
 
-        // Strip <think> tags and format
-        let cleaned = fullContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        cleaned = cleaned
+        let cleaned = fullContent
+          .replace(/<think>[\s\S]*?<\/think>/g, '')
           .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
           .replace(/`(.*?)`/g, '<code>$1</code>')
           .replace(/\n/g, '<br>');
@@ -83,16 +78,15 @@ export default function Chat() {
         setStreamingContent(cleaned);
       }
 
-      // Finalize the message
+      let finalContent = fullContent
+        .replace(/<think>[\s\S]*?<\/think>/g, '')
+        .replace(/\n/g, '<br>')
+        .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+        .replace(/`(.*?)`/g, '<code>$1</code>');
+
       setMessages(prev => {
         const updated = [...prev];
-        const lastMsg = updated[updated.length - 1];
-        let finalContent = fullContent.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-        finalContent = finalContent
-          .replace(/\n/g, '<br>')
-          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-          .replace(/`(.*?)`/g, '<code>$1</code>');
-        lastMsg.content = finalContent;
+        updated[updated.length - 1] = { role: 'assistant', content: finalContent };
         return updated;
       });
 
@@ -100,7 +94,6 @@ export default function Chat() {
 
     } catch (err: any) {
       if (err.name === 'AbortError') return;
-      // Remove the empty placeholder message
       setMessages(prev => prev.slice(0, -1));
       setMessages(prev => [...prev, { role: 'assistant', content: `Error: ${err.message}` }]);
       setStreamingContent('');
@@ -125,39 +118,45 @@ export default function Chat() {
         </div>
         <div className="header-right">
           {isAdmin && (
-            <Link to="/admin" className="admin-btn">Admin Console</Link>
+            <Link to="/admin" className="admin-btn">Admin</Link>
           )}
-          <div className="user-info">
-            <span>{user?.email}</span>
-            <button onClick={logout} className="logout-btn">Logout</button>
-          </div>
+          <span className="user-email">{user?.email}</span>
+          <button onClick={logout} className="logout-btn">Logout</button>
         </div>
       </header>
 
       <div className="chat-body">
-        {messages.length === 0 ? (
+        {messages.length === 0 && !streamingContent ? (
           <div className="chat-empty">
-            <p>AI Helpdesk Assistant By Ethan Zabenco.</p>
+            <p>Ask a question about IT procedures, KB articles, or troubleshooting.</p>
           </div>
-        ) : (
-          <div className="messages">
-            {messages.map((msg, i) => (
-              <div key={i} className={`message ${msg.role}`}>
-                <div className="message-content" dangerouslySetInnerHTML={{ __html: msg.content }} />
-              </div>
-            ))}
-            {streamingContent && (
-              <div className="message assistant">
-                <div className="message-content typing" dangerouslySetInnerHTML={{ __html: streamingContent }} />
-              </div>
-            )}
-            {loading && !streamingContent && (
-              <div className="message assistant">
-                <div className="message-content typing">Thinking...</div>
-              </div>
-            )}
-          </div>
-        )}
+        ) : null}
+
+        <div className="messages-list">
+          {messages.map((msg, i) => (
+            <div key={i} className={`message-row ${msg.role}`}>
+              {msg.role === 'assistant' && (
+                <div className="message-label assistant-label">AI</div>
+              )}
+              <div
+                className={`message-text ${msg.role}`}
+                dangerouslySetInnerHTML={{ __html: msg.content }}
+              />
+            </div>
+          ))}
+          {streamingContent && (
+            <div className="message-row assistant">
+              <div className="message-label assistant-label">AI</div>
+              <div className="message-text assistant" dangerouslySetInnerHTML={{ __html: streamingContent }} />
+            </div>
+          )}
+          {loading && !streamingContent && (
+            <div className="message-row assistant">
+              <div className="message-label assistant-label">AI</div>
+              <div className="message-text assistant thinking">Thinking...</div>
+            </div>
+          )}
+        </div>
         <div ref={messagesEndRef} />
       </div>
 
