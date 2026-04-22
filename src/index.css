@@ -231,6 +231,17 @@ body {
   flex-direction: row-reverse;
 }
 
+.message-text.user {
+  background: rgba(255, 255, 255, 0.08);
+  padding: 0.7rem 1rem;
+  border-radius: 12px;
+  border-bottom-right-radius: 4px;
+}
+
+.message-row.user .message-label {
+  color: var(--text-secondary);
+}
+
 .message-label {
   font-size: 0.7rem;
   font-weight: 600;
@@ -255,7 +266,7 @@ body {
 }
 
 .message-text.user {
-  color: #000;
+  color: #fff;
 }
 
 .message-text.assistant {
