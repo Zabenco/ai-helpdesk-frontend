@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../AuthContext';
 import { auth } from '../firebase';
@@ -26,10 +26,16 @@ export default function Admin() {
   const [modelMsg, setModelMsg] = useState('');
 
   // User history state
-  const [historyEmail, setHistoryEmail] = useState('');
-  const [historyMessages, setHistoryMessages] = useState<MessageItem[]>([]);
+  const [historyEmail, setHistoryEmail] = useState(() => localStorage.getItem('admin_history_email') || '');
+  const [historyMessages, setHistoryMessages] = useState<MessageItem[]>(() => {
+    try { return JSON.parse(localStorage.getItem('admin_history_messages') || '[]'); } catch { return []; }
+  });
   const [historyLoading, setHistoryLoading] = useState(false);
   const [selectedMsg, setSelectedMsg] = useState<MessageItem | null>(null);
+
+  // Persist history email and messages to localStorage
+  useEffect(() => { if (historyEmail) localStorage.setItem('admin_history_email', historyEmail); }, [historyEmail]);
+  useEffect(() => { localStorage.setItem('admin_history_messages', JSON.stringify(historyMessages)); }, [historyMessages]);
 
   // Upload state
   const [files, setFiles] = useState<FileList | null>(null);
@@ -75,14 +81,20 @@ export default function Admin() {
     setHistoryLoading(true);
     setHistoryMessages([]);
     try {
-      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}`);
+      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}/full`);
       const data = await res.json();
-      if (data.history) {
-        // History comes as a newline-separated string: "user: ...\nassistant: ...\n..."
+      if (data.history && Array.isArray(data.history)) {
+        setHistoryMessages(data.history.map((m: any) => ({
+          role: typeof m.role === 'string' ? m.role.toLowerCase() : 'user',
+          content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),
+          timestamp: m.timestamp || null,
+        })));
+      } else if (data.history) {
+        // Fallback for legacy string format
         const lines = (typeof data.history === 'string' ? data.history : JSON.stringify(data.history))
           .split('\n')
           .filter((l: string) => l.trim());
-        const loaded: {role: string; content: string}[] = [];
+        const loaded: MessageItem[] = [];
         for (const line of lines) {
           const colonIdx = line.indexOf(':');
           if (colonIdx === -1) continue;
