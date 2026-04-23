@@ -77,20 +77,24 @@ export default function Admin() {
     try {
       const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}`);
       const data = await res.json();
-      if (data.history && Array.isArray(data.history)) {
-        setHistoryMessages(data.history.map((item: any) => {
-          let content = '';
-          if (typeof item.content === 'string') {
-            content = item.content;
-          } else if (Array.isArray(item.blocks)) {
-            content = item.blocks.map((b: any) => b.text || '').join('\n');
+      if (data.history) {
+        // History comes as a newline-separated string: "user: ...\nassistant: ...\n..."
+        const lines = (typeof data.history === 'string' ? data.history : JSON.stringify(data.history))
+          .split('\n')
+          .filter((l: string) => l.trim());
+        const loaded: {role: string; content: string}[] = [];
+        for (const line of lines) {
+          const colonIdx = line.indexOf(':');
+          if (colonIdx === -1) continue;
+          const role = line.slice(0, colonIdx).trim().toLowerCase();
+          const content = line.slice(colonIdx + 1).trim();
+          if (content && (role === 'user' || role === 'assistant')) {
+            loaded.push({ role: role as 'user' | 'assistant', content });
           }
-          return {
-            role: item.role || 'user',
-            content: String(content),
-            timestamp: item.timestamp || null,
-          };
-        }));
+        }
+        if (loaded.length > 0) {
+          setHistoryMessages(loaded);
+        }
       }
     } catch (err: any) {
       console.error('History fetch error:', err);
