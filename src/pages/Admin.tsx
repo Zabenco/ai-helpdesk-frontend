@@ -115,6 +115,23 @@ export default function Admin() {
     }
   };
 
+  const handleDeleteHistory = async () => {
+    if (!historyEmail.trim()) return;
+    if (!confirm(`Delete all chat history for ${historyEmail}? This cannot be undone.`)) return;
+    try {
+      const res = await fetch(`${BACKEND_URL}/history/${encodeURIComponent(historyEmail)}`, { method: 'DELETE' });
+      if (res.ok) {
+        setHistoryMessages([]);
+        localStorage.removeItem('admin_history_messages');
+        alert(`History deleted for ${historyEmail}`);
+      } else {
+        alert(`Failed to delete history: ${res.statusText}`);
+      }
+    } catch (err: any) {
+      alert(`Error: ${err.message}`);
+    }
+  };
+
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!files || files.length === 0) return;
@@ -257,6 +274,12 @@ export default function Admin() {
                 {historyLoading ? 'Loading...' : 'Lookup History'}
               </button>
             </form>
+            {historyMessages.length > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{historyMessages.length} messages for <strong>{historyEmail}</strong></span>
+                <button onClick={handleDeleteHistory} style={{ background: 'rgba(248,81,73,0.15)', border: '1px solid rgba(248,81,73,0.5)', borderRadius: '6px', padding: '0.4rem 0.8rem', color: '#f85149', cursor: 'pointer', fontSize: '0.8rem' }}>Delete History</button>
+              </div>
+            )}
             {historyMessages.length > 0 && (
               <div className="history-result">
                 {historyMessages.map((msg, i) => (
